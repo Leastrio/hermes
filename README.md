@@ -1,21 +1,5 @@
 # Hermes
 
-**TODO: Add description**
+Custom TCP/IP stack with Elixir/C
 
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `hermes` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:hermes, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/hermes>.
-
+Elixir is used for the most part, except for the setting up the tap interface and reading/writing which is done via a C NIF.
