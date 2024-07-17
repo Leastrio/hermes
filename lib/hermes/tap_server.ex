@@ -3,59 +3,56 @@ defmodule Hermes.TapServer do
   require Logger
   alias Hermes.Native
   alias Hermes.Ethernet
-  alias Hermes.Arp
   alias Hermes.Utils
 
-  @route "10.0.0.0/24"
-  @ip "10.0.0.1"
-  
+  @route "10.0.0.1/24"
+  @ip <<10::8, 0::8, 0::8, 5::8>>
+
   def start_link(_) do
     GenServer.start_link(__MODULE__, {}, name: __MODULE__)
   end
 
   @impl true
   def init(_state) do
-    {:ok, resource, name} = Native.tuntap_init()
+    {:ok, resource, device_name} = Native.tuntap_init()
 
-    Utils.run_cmd("ip", ["link", "set", to_string(name), "up"])
-    Utils.run_cmd("ip", ["route", "add", "dev", to_string(name), @route])
-    Utils.run_cmd("ip", ["address", "add", "dev", to_string(name), "local", @ip])
-    Logger.info("Started device at #{to_string(name)}")
+    Utils.run_cmd("ip", ["link", "set", to_string(device_name), "up"])
+    Utils.run_cmd("ip", ["address", "add", @route, "dev", to_string(device_name)])
+    Logger.info("Started device at #{to_string(device_name)}")
 
-    info = get_if_info(name)
-    <<mac::48>> = :binary.list_to_bin(Keyword.get(info, :hwaddr))
-    ip = ip_to_int(Keyword.get(info, :addr))
+    {:ok, resource, {:continue, device_name}}
+  end
 
-    {:ok, {resource, mac, ip}}
+  @impl true
+  def handle_continue(device_name, resource) do
+    # sleep before fetching the mac because for some reason it changes
+    Process.sleep(1000)
+    <<mac::48>> = get_mac_addr(device_name)
+    <<ip::32>> = @ip
+
+    {:noreply, {resource, mac, ip}}
   end
 
   @impl true
   def handle_info(:read_ready, {resource, _mac, _ip} = state) do
-    Logger.debug("Recv read ready")
+    Logger.debug("Reading incoming data...")
     data = Native.read_tap(resource)
+
     Task.Supervisor.start_child(Hermes.TaskSupervisor, fn ->
-      frame = Ethernet.parse(data)
-      handle_frame(frame, state)
+      data
+      |> Ethernet.parse()
+      |> Ethernet.process_protocol(state)
     end)
+
     {:noreply, state}
   end
 
-  def handle_frame(%Ethernet{payload: payload} = frame, {_resource, _mac, ip} = state) do
-    IO.inspect(frame, label: "RX")
-    case payload do
-      %Arp{tpa: tpa} when tpa == ip -> Arp.handle_packet(frame, payload, state)
-      _ -> :ok
-    end
-  end
-
-  defp get_if_info(name) do
+  defp get_mac_addr(name) do
     {:ok, entries} = :inet.getifaddrs()
+
     Enum.find(entries, fn {if_name, _opts} -> if_name == name end)
     |> elem(1)
-  end
-
-  def ip_to_int({a, b, c, d}) do
-    <<rest::32>> = <<a::8, b::8, c::8, d::8>>
-    rest
+    |> Keyword.get(:hwaddr)
+    |> :binary.list_to_bin()
   end
 end

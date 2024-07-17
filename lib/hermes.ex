@@ -1,3 +1,2 @@
 defmodule Hermes do
-  
 end

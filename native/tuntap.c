@@ -87,8 +87,8 @@ static ERL_NIF_TERM write_tap(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 
 static ErlNifFunc nif_funcs[] = {
   {"tuntap_init", 0, tuntap_init},
-  {"read_tap", 1, read_tap, ERL_NIF_DIRTY_JOB_IO_BOUND},
-  {"write_tap", 2, write_tap, ERL_NIF_DIRTY_JOB_IO_BOUND}
+  {"read_tap", 1, read_tap},
+  {"write_tap", 2, write_tap}
 };
 
 ERL_NIF_INIT(Elixir.Hermes.Native, nif_funcs, load, NULL, NULL, NULL);
